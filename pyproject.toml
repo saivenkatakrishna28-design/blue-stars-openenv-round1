@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "blue-stars-openenv-round1"
+version = "0.1.0"
+description = "Blue Stars Support Triage OpenEnv"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+  "fastapi==0.115.0",
+  "uvicorn==0.30.6",
+  "pydantic==2.9.2",
+  "httpx==0.27.2",
+  "openai==1.51.2",
+  "pytest==8.3.3",
+  "pyyaml==6.0.2"
+]
+
+[tool.setuptools]
+py-modules = ["main", "inference"]
+
+[tool.setuptools.packages.find]
+include = ["app*"]
+
+[project.scripts]
+server = "main:app"

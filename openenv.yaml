@@ -1,0 +1,46 @@
+name: blue-stars-support-triage-openenv
+version: "2.0.0"
+description: Real-world customer support triage environment by Blue Stars with deterministic graders, multi-step episodes, and safety-aware reward shaping.
+domain: customer-support
+
+entrypoints:
+  reset: /reset
+  step: /step
+  state: /state
+  health: /health
+  tasks: /tasks
+
+metadata:
+  author: Blue Stars
+  team_name: Blue Stars
+  environment_type: openenv
+  difficulty_levels:
+    - easy
+    - medium
+    - hard
+  num_tasks: 3
+  reward_range:
+    min: 0.0
+    max: 1.0
+  deterministic_graders: true
+  real_world_simulation: true
+  multi_step: true
+  supports_partial_progress: true
+
+models:
+  observation: app.models.Observation
+  action: app.models.Action
+  reward: app.models.Reward
+  state: app.models.State
+
+runtime:
+  framework: fastapi
+  python: "3.10"
+  max_runtime_minutes: 20
+  vcpu: 2
+  memory_gb: 8
+
+deployment:
+  containerized: true
+  huggingface_space_ready: true
+  docker_required: true

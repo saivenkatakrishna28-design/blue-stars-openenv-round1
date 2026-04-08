@@ -1,0 +1,137 @@
+# Blue Stars Support Triage OpenEnv
+
+A real-world OpenEnv environment for customer support ticket triage and agent evaluation, developed by **Blue Stars**.
+
+## Why this environment matters
+
+Customer support operations require reliable triage across billing, account recovery, and security workflows. Mistakes can lead to poor customer experience, security incidents, compliance problems, and delayed resolution.
+
+This environment simulates realistic support triage decisions that an AI agent can be trained or evaluated on.
+
+## Team
+
+**Group Name:** Blue Stars
+
+## Real-world utility
+
+This is not a toy or game environment. It models actual support operations:
+
+- refund routing
+- account recovery verification
+- enterprise security escalation
+- sensitive information handling
+- priority-aware dispatching
+
+## OpenEnv API
+
+The environment exposes:
+
+- `POST /reset`
+- `POST /step`
+- `GET /state`
+- `GET /health`
+- `GET /tasks`
+
+## Tasks
+
+### 1. Easy — `easy_refund_request`
+A duplicate-charge refund request that should go to billing with correct tagging and medium priority.
+
+### 2. Medium — `medium_login_locked`
+A login and 2FA failure case that requires secure follow-up and correct account routing.
+
+### 3. Hard — `hard_security_breach`
+An enterprise account takeover report involving sensitive information, urgent priority, and mandatory escalation.
+
+## Difficulty progression
+
+The environment is designed to progress from:
+
+- basic routing
+- secure verification workflow
+- high-risk safety-critical escalation
+
+## Observation space
+
+Each observation contains:
+
+- episode metadata
+- current step
+- max steps
+- task definition
+- ticket details
+- workflow stage
+- available queues
+- available tags
+- action schema
+- context fields
+
+## Action space
+
+Action fields are:
+
+- `queue`
+- `response_type`
+- `priority`
+- `tags`
+- `redact_pii`
+- `note`
+
+## Reward design
+
+Reward is deterministic and constrained to `0.0–1.0`.
+
+Reward components include:
+
+- correct queue selection
+- correct response type
+- correct priority
+- required tags
+- correct redaction
+- workflow-appropriate action
+
+Penalties include:
+
+- unsafe non-escalation
+- missing redaction for sensitive content
+- incorrect low urgency on urgent security incidents
+- unsafe close actions
+
+## Deterministic graders
+
+Each task uses a deterministic grader with no randomness. The same action on the same task always yields the same result.
+
+## Multi-step workflow
+
+Unlike a one-step toy environment, this environment supports multiple steps per episode:
+
+- analyze
+- act
+- finalize
+
+This gives more meaningful partial progress signals.
+
+## Baseline inference
+
+The root `inference.py` script:
+
+- runs all 3 tasks
+- uses a reproducible baseline policy
+- emits structured logs
+- optionally initializes an OpenAI client from environment variables
+
+## Environment variables
+
+Example variables:
+
+- `API_BASE_URL`
+- `MODEL_NAME`
+- `HF_TOKEN`
+- `OPENAI_API_KEY`
+- `SPACE_URL`
+
+## Run locally
+
+```bash
+pip install -r requirements.txt
+uvicorn app:app --host 0.0.0.0 --port 7860

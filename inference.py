@@ -1,5 +1,5 @@
 import os
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 import httpx
 from openai import OpenAI
@@ -14,21 +14,22 @@ BENCHMARK = "blue_stars_support_triage"
 
 
 def build_client() -> OpenAI:
-    return OpenAI(
-        api_key=os.environ["API_KEY"],
-        base_url=os.environ["API_BASE_URL"],
-    )
+    api_key = os.getenv("API_KEY") or os.getenv("HF_TOKEN")
+    base_url = os.getenv("API_BASE_URL", "https://router.huggingface.co/v1")
+    if not api_key:
+        raise RuntimeError("Missing API_KEY or HF_TOKEN")
+    return OpenAI(api_key=api_key, base_url=base_url)
 
 
-def require_model_name() -> str:
-    return os.environ["MODEL_NAME"]
+def get_model_name() -> str:
+    return os.getenv("MODEL_NAME", "Qwen/Qwen2.5-72B-Instruct")
 
 
 def log_start(task: str, env: str, model: str) -> None:
     print(f"[START] task={task} env={env} model={model}", flush=True)
 
 
-def log_step(step: int, action: str, reward: float, done: bool, error: str | None) -> None:
+def log_step(step: int, action: str, reward: float, done: bool, error: Optional[str]) -> None:
     error_val = error if error else "null"
     done_val = str(done).lower()
     print(
@@ -129,7 +130,7 @@ def choose_action(task_id: str, step_index: int, observation: Dict) -> Dict:
     }
 
 
-def call_required_llm_proxy(client: OpenAI, model_name: str, task_id: str, observation: Dict) -> None:
+def call_llm(client: OpenAI, model_name: str, task_id: str, observation: Dict) -> None:
     prompt = (
         f"Task: {task_id}\n"
         f"Ticket summary: {observation['ticket']['summary']}\n"
@@ -163,15 +164,15 @@ def run_task(base_url: str, task_id: str, client: OpenAI, model_name: str) -> fl
     success = False
     score = 0.0
 
-    with httpx.Client(timeout=60.0) as http:
-        reset_response = http.post(f"{base_url}/reset", params={"task_id": task_id})
-        reset_response.raise_for_status()
-        observation = reset_response.json()["observation"]
+    log_start(task=task_id, env=BENCHMARK, model=model_name)
 
-        log_start(task=task_id, env=BENCHMARK, model=model_name)
+    try:
+        with httpx.Client(timeout=60.0) as http:
+            reset_response = http.post(f"{base_url}/reset", params={"task_id": task_id})
+            reset_response.raise_for_status()
+            observation = reset_response.json()["observation"]
 
-        try:
-            call_required_llm_proxy(client, model_name, task_id, observation)
+            call_llm(client, model_name, task_id, observation)
 
             done = False
             while not done:
@@ -197,23 +198,22 @@ def run_task(base_url: str, task_id: str, client: OpenAI, model_name: str) -> fl
 
                 observation = result["observation"]
 
-            score = rewards[-1] if rewards else 0.0
-            score = max(0.0, min(1.0, score))
+            score = max(0.0, min(1.0, rewards[-1] if rewards else 0.0))
             success = score > 0.0
 
-        except Exception as exc:
-            log_step(
-                step=max(1, steps_taken + 1),
-                action="exception",
-                reward=0.00,
-                done=True,
-                error=str(exc),
-            )
-            success = False
-            score = 0.0
+    except Exception as exc:
+        log_step(
+            step=max(1, steps_taken + 1),
+            action="exception",
+            reward=0.00,
+            done=True,
+            error=str(exc),
+        )
+        success = False
+        score = 0.0
 
-        finally:
-            log_end(success=success, steps=steps_taken, score=score, rewards=rewards)
+    finally:
+        log_end(success=success, steps=steps_taken, score=score, rewards=rewards)
 
     return score
 
@@ -221,7 +221,7 @@ def run_task(base_url: str, task_id: str, client: OpenAI, model_name: str) -> fl
 def main() -> None:
     base_url = os.getenv("SPACE_URL", "http://127.0.0.1:7860")
     client = build_client()
-    model_name = require_model_name()
+    model_name = get_model_name()
 
     for task_id in TASKS:
         run_task(base_url, task_id, client, model_name)
